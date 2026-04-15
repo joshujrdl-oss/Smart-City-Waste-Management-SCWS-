@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARIKA AI - Ambon Smart Waste Hub (SCWS)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 500: '#22c55e', 600: '#16a34a' },
+                        dark: { 900: '#0f172a', 950: '#020617' }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; scroll-behavior: smooth; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        #map { height: 500px; border-radius: 2.5rem; width: 100%; z-index: 1; }
+        .login-bg { background: radial-gradient(circle, #1e293b 0%, #020617 100%); }
+        .route-anim { stroke-dasharray: 10; animation: dash 20s linear infinite; }
+        @keyframes dash { to { stroke-dashoffset: -1000; } }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .story-card { transition: all 0.4s ease; }
+        .story-card:hover { transform: translateY(-10px); background: rgba(34, 197, 94, 0.1); border-color: #22c55e; }
+    </style>
+</head>
+<body class="bg-dark-950 text-slate-200">
+
+    <div id="login-screen" class="fixed inset-0 z-[9999] login-bg flex items-center justify-center p-6">
+        <div class="w-full max-w-md glass p-10 rounded-[3rem] text-center shadow-2xl border border-brand-500/30">
+            <div class="bg-brand-500/20 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <i class="fas fa-lock-open text-brand-500 text-4xl"></i>
+            </div>
+            <h1 class="text-3xl font-black text-white mb-2 tracking-tighter uppercase">ARIKA AI <span class="text-brand-500 font-light italic text-xl">Secure</span></h1>
+            <p class="text-slate-500 text-[10px] mb-8 font-bold uppercase tracking-[0.3em]">Smart City Waste Hub - Ambon</p>
+            
+            <div class="space-y-4 mb-6">
+                <input type="text" id="username" placeholder="Nama Lengkap" class="w-full bg-dark-900 border border-slate-800 rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-brand-500">
+                <input type="password" id="password" placeholder="Password" class="w-full bg-dark-900 border border-slate-800 rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-brand-500">
+                <select id="user-role" class="w-full bg-dark-900 border border-slate-800 rounded-2xl p-4 text-white outline-none">
+                    <option value="Admin Pemerintah">Akses: Birokrasi (Admin)</option>
+                    <option value="Petugas Lapangan">Akses: Operator Lapangan</option>
+                    <option value="Masyarakat Umum">Akses: Partisipasi Publik</option>
+                </select>
+            </div>
+            <button onclick="handleLogin()" class="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-brand-500/20 uppercase tracking-widest">Autentikasi Sistem</button>
+        </div>
+    </div>
+
+    <div id="main-app" class="hidden">
+        <nav class="glass sticky top-0 z-[100] px-8 py-4 flex justify-between items-center border-b border-white/5">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-shield-virus text-brand-500 text-2xl"></i>
+                <h2 class="text-xl font-black text-white uppercase tracking-tighter">AMBON<span class="text-brand-500">SCWS</span></h2>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="flex flex-col items-end">
+                    <span id="role-tag" class="text-[10px] bg-brand-500/20 text-brand-500 px-3 py-1 rounded-full font-bold uppercase tracking-widest border border-brand-500/30 italic">Role</span>
+                    <span class="text-[9px] text-yellow-500 font-bold mt-1"><i class="fas fa-award"></i> <span class="user-points-display">150</span> Points</span>
+                </div>
+                <button onclick="location.reload()" class="text-red-400 text-xs font-bold hover:text-red-300 transition-all uppercase tracking-tighter">Keluar</button>
+            </div>
+        </nav>
+
+        <main class="container mx-auto px-6 py-10 space-y-20">
+            
+            <section>
+                <div class="text-center max-w-3xl mx-auto mb-12">
+                    <h2 class="text-4xl font-black text-white mb-4 italic leading-tight">Integrasi Hybrid System <br><span class="text-brand-500">Ambon Smart Waste</span></h2>
+                    <p class="text-slate-400 text-sm leading-relaxed">Optimalisasi tata kelola sampah berbasis IoT dengan arsitektur <b>Hybrid-Adaptive</b>. Mengintegrasikan sinkronisasi data <i>real-time</i> dan penyimpanan lokal transien untuk memastikan persistensi sistem di wilayah dengan volatilitas koneksi tinggi.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="glass p-8 rounded-[2.5rem] border border-white/5 story-card">
+                        <div class="w-12 h-12 bg-red-500/20 rounded-2xl flex items-center justify-center mb-6"><i class="fas fa-video text-red-500"></i></div>
+                        <h4 class="text-white font-bold mb-3">Computer Vision Audit</h4>
+                        <p class="text-slate-500 text-xs">Analisis preventif perilaku publik melalui identifikasi pola anomali waktu pembuangan menggunakan algoritma deteksi objek.</p>
+                    </div>
+                    <div class="glass p-8 rounded-[2.5rem] border border-white/5 story-card">
+                        <div class="w-12 h-12 bg-brand-500/20 rounded-2xl flex items-center justify-center mb-6"><i class="fas fa-microchip text-brand-500"></i></div>
+                        <h4 class="text-white font-bold mb-3">Adaptive IoT Sensors</h4>
+                        <p class="text-slate-500 text-xs">Sensor ultrasonik dengan transmisi adaptif yang memantau volatilitas volume TPS secara presisi dan berkelanjutan.</p>
+                    </div>
+                    <div class="glass p-8 rounded-[2.5rem] border border-white/5 story-card">
+                        <div class="w-12 h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center mb-6"><i class="fas fa-route text-blue-500"></i></div>
+                        <h4 class="text-white font-bold mb-3">VRP Route Optimization</h4>
+                        <p class="text-slate-500 text-xs">Implementasi metode <b>Vehicle Routing Problem (VRP)</b> untuk menentukan trayek armada paling efisien berdasarkan bobot prioritas real-time.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="space-y-8">
+                <div class="flex flex-col md:flex-row justify-between items-end gap-4 border-l-4 border-brand-500 pl-6">
+                    <div>
+                        <p class="text-brand-500 font-black text-[10px] uppercase tracking-widest">Real-Time Analytical Dashboard</p>
+                        <h3 class="text-4xl font-black text-white italic tracking-tighter">Command Center Operasional</h3>
+                    </div>
+                    <div class="glass px-8 py-4 rounded-3xl text-center">
+                        <p class="text-[9px] text-slate-500 font-bold uppercase mb-1">Status Kritis (Threshold > 85%)</p>
+                        <p id="crit-val" class="text-3xl font-black text-red-500">0</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div class="lg:col-span-3 relative">
+                        <div id="map" class="shadow-2xl border border-slate-800"></div>
+                        <div class="absolute top-6 left-6 z-[1000]">
+                            <button onclick="runVRP()" class="bg-blue-600 text-white px-8 py-4 rounded-3xl font-black shadow-2xl hover:bg-blue-500 flex items-center gap-3 transition-all">
+                                <i class="fas fa-microchip animate-pulse"></i> AKTIVASI VRP OPTIMIZER
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-6">
+                        <div class="glass p-6 rounded-[2.5rem] flex-1 flex flex-col h-[350px]">
+                            <h5 class="text-[10px] font-black text-slate-500 uppercase mb-4 tracking-widest border-b border-white/10 pb-2">IoT Sensor Telemetry</h5>
+                            <div id="iot-list" class="space-y-4 overflow-y-auto no-scrollbar flex-1"></div>
+                        </div>
+                        <div class="glass p-6 rounded-[2.5rem] border border-white/5 flex flex-col items-center justify-center text-center">
+                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-4 tracking-widest">Akumulasi Sampah Mingguan</p>
+                            <canvas id="miniChart" height="120"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="space-y-6">
+                    <div class="glass p-8 rounded-[3rem] border border-yellow-500/30">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 class="text-xl font-bold text-white">Redeem Social Rewards</h3>
+                                <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-wider leading-relaxed">Apresiasi atas partisipasi aktif masyarakat dalam pelaporan dan menjaga kebersihan lingkungan.</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[9px] text-slate-500 font-bold uppercase italic">Poin Saat Ini</p>
+                                <p class="text-2xl font-black text-yellow-500 user-points-display">150</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-dark-900/50 p-5 rounded-2xl border border-white/5 flex items-center justify-between group">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 bg-yellow-500/10 rounded-xl flex items-center justify-center text-yellow-500 border border-yellow-500/20">
+                                    <i class="fas fa-wallet text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold text-white">Voucher E-Wallet Rp20.000</p>
+                                    <p class="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-1">Biaya: 2.000 Poin</p>
+                                </div>
+                            </div>
+                            <button onclick="redeemPoints()" id="btn-redeem" class="bg-slate-800 text-slate-500 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-not-allowed">
+                                Tukar Poin
+                            </button>
+                        </div>
+                        <p class="text-[9px] text-slate-500 mt-4 italic">*Poin otomatis terkumpul setiap laporan valid yang dikirim melalui sistem ARIKA.</p>
+                    </div>
+
+                    <div class="glass p-8 rounded-[3rem] border border-white/5 relative overflow-hidden">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold text-white flex items-center gap-3"><i class="fas fa-broadcast-tower text-red-500 animate-pulse"></i> Node: Sirimau Core</h3>
+                            <span class="text-[10px] bg-red-500 text-white px-2 py-1 rounded font-black">LIVE STREAM</span>
+                        </div>
+                        <div class="relative rounded-[2rem] overflow-hidden bg-black aspect-video border border-white/10 shadow-inner">
+                            <img src="https://images.unsplash.com/photo-1590247813693-5541d1c609fd?auto=format&fit=crop&q=80&w=1000" class="w-full h-full object-cover opacity-40 grayscale" alt="CCTV Stream">
+                            <div class="absolute top-1/4 left-1/4 border-2 border-brand-500 w-24 h-36 flex items-start p-1">
+                                <span class="bg-brand-500 text-[7px] text-white font-bold">ANALYSIS_DETECT</span>
+                            </div>
+                            <div class="absolute bottom-4 right-6 font-mono text-[9px] text-brand-500 text-right italic">Timestamp: Synchronized<br>Status: Real-time Cloud Sync</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass p-8 rounded-[3rem] border border-brand-500/20">
+                    <h3 class="text-xl font-bold text-white mb-2">Partisipasi & Pelaporan Publik</h3>
+                    <p class="text-[10px] text-yellow-500 font-bold mb-6 italic uppercase tracking-wider">Konversi Kontribusi: +10 Reward Points (Dapat ditukar Insentif)</p>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <button onclick="getLocation()" class="bg-dark-900 border border-white/10 p-5 rounded-2xl text-left hover:border-brand-500 transition-all">
+                                <p class="text-[9px] text-slate-500 font-bold uppercase mb-1 italic">Spatial Tagging</p>
+                                <p id="loc-status" class="text-xs text-white font-bold tracking-tight">Geo-Location</p>
+                            </button>
+                            <label class="bg-dark-900 border border-white/10 p-5 rounded-2xl text-left cursor-pointer hover:border-brand-500 transition-all">
+                                <p class="text-[9px] text-slate-500 font-bold uppercase mb-1 italic">Lampiran Visual</p>
+                                <p id="photo-status" class="text-xs text-white font-bold">Unggah Bukti</p>
+                                <input type="file" class="hidden" onchange="document.getElementById('photo-status').innerText = 'Data Terlampir ✅'">
+                            </label>
+                        </div>
+                        <textarea class="w-full bg-dark-900 border border-white/10 rounded-2xl p-4 text-xs text-white outline-none focus:border-brand-500" rows="3" placeholder="Deskripsi kondisi tumpukan atau anomali fasilitas..."></textarea>
+                        <button onclick="submitReport()" class="w-full bg-brand-500 py-4 rounded-2xl font-black text-white shadow-xl hover:bg-brand-600 uppercase tracking-[0.2em] transition-all">Submit Laporan Digital</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="py-12 border-t border-white/5 text-center opacity-40">
+            <p class="text-slate-600 text-[9px] font-bold uppercase tracking-[0.5em]">© 2026 JOSHUA JERIAH RAKUT DE LIMA - TEKNIK INDUSTRI UNPATTI</p>
+            <p class="text-slate-600 text-[7px] mt-2 italic text-brand-500">Framework: Vehicle Routing Problem (VRP) & Hybrid IoT Architecture</p>
+        </footer>
+    </div>
+
+    <div class="fixed bottom-10 right-10 z-[2000]">
+        <div id="chat-box" class="hidden glass w-80 md:w-96 h-[550px] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden mb-6 border border-white/10">
+            <div class="bg-gradient-to-r from-brand-600 to-brand-500 p-6 text-white flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center"><i class="fas fa-brain text-xl"></i></div>
+                    <div>
+                        <p class="font-black text-sm uppercase">ARIKA AI</p>
+                        <p class="text-[8px] uppercase tracking-widest opacity-80 italic">Virtual Decision Assistant</p>
+                    </div>
+                </div>
+                <button onclick="toggleChat()"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="chat-msgs" class="flex-1 p-6 overflow-y-auto space-y-4 text-[13px] no-scrollbar">
+                <div class="flex justify-start">
+                    <div class="bg-dark-900 border border-white/5 p-4 rounded-3xl rounded-tl-none max-w-[85%] text-slate-300">
+                        Selamat datang di portal asisten <b>ARIKA AI</b>. Saya siap memvalidasi laporan insiden atau memberikan estimasi jadwal pengangkutan berbasis optimasi rute terkini. Ada yang bisa saya bantu?
+                    </div>
+                </div>
+            </div>
+            <div class="p-5 bg-dark-950/50 flex gap-3 border-t border-white/5">
+                <input type="text" id="chat-in" class="flex-1 bg-dark-900 border border-white/5 rounded-2xl px-5 py-3 text-xs text-white outline-none focus:border-brand-500" placeholder="Konsultasi sistem...">
+                <button onclick="sendMsg()" class="bg-brand-500 w-12 h-12 rounded-2xl flex items-center justify-center text-white transition-transform active:scale-90"><i class="fas fa-paper-plane text-xs"></i></button>
+            </div>
+        </div>
+
+        <button onclick="toggleChat()" class="bg-brand-500 w-16 h-16 rounded-[1.5rem] shadow-2xl flex items-center justify-center text-white text-2xl hover:scale-110 transition-all border-4 border-dark-950/50">
+            <i class="fas fa-robot"></i>
+            <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-4 border-dark-950 animate-bounce"></span>
+        </button>
+    </div>
+
+    <script>
+        const tpsData = [
+            { name: "TPS Passo (Baguala)", lat: -3.6425, lng: 128.2450, vol: 88 },
+            { name: "TPS Batu Merah", lat: -3.6930, lng: 128.1950, vol: 45 },
+            { name: "TPS Terminal Mardika", lat: -3.6950, lng: 128.1850, vol: 95 },
+            { name: "TPS Kudamati", lat: -3.7050, lng: 128.1620, vol: 92 },
+            { name: "TPS Lateri", lat: -3.6550, lng: 128.2280, vol: 30 }
+        ];
+
+        let map, markers = [], routeLayer;
+        let points = 150; // Initial Poin
+
+        function handleLogin() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            if(!user || !pass) return Swal.fire({ title: 'Otentikasi Gagal', text: 'Kredensial akses wajib diisi.', icon: 'error', background: '#0f172a', color: '#fff' });
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            document.getElementById('role-tag').innerText = document.getElementById('user-role').value;
+            initDashboard();
+        }
+
+        function initDashboard() {
+            map = L.map('map', { zoomControl: false }).setView([-3.685, 128.20], 12);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+            updateUI();
+            updatePointUI(); // Sync Poin
+            initCharts();
+            setInterval(() => {
+                tpsData.forEach(t => t.vol = Math.min(100, Math.max(10, t.vol + Math.floor(Math.random() * 8) - 3)));
+                updateUI();
+            }, 7000);
+        }
+
+        function updatePointUI() {
+            // Update all point displays
+            document.querySelectorAll('.user-points-display').forEach(el => el.innerText = points.toLocaleString('id-ID'));
+            
+            const btnRedeem = document.getElementById('btn-redeem');
+            if (points >= 2000) {
+                btnRedeem.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
+                btnRedeem.classList.add('bg-yellow-500', 'text-dark-950', 'hover:bg-yellow-400', 'shadow-lg', 'shadow-yellow-500/20');
+                btnRedeem.disabled = false;
+            } else {
+                btnRedeem.classList.add('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
+                btnRedeem.classList.remove('bg-yellow-500', 'text-dark-950', 'hover:bg-yellow-400');
+                btnRedeem.disabled = true;
+            }
+        }
+
+        function redeemPoints() {
+            if (points < 2000) {
+                return Swal.fire({ 
+                    title: 'Poin Belum Cukup', 
+                    text: `Anda membutuhkan ${ (2000 - points).toLocaleString('id-ID') } poin lagi untuk penukaran ini.`, 
+                    icon: 'info', background: '#0f172a', color: '#fff' 
+                });
+            }
+
+            Swal.fire({
+                title: 'Konfirmasi Penukaran',
+                text: "Tukar 2.000 poin dengan Voucher E-Wallet Rp20.000?",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#22c55e',
+                cancelButtonColor: '#ef4444',
+                confirmButtonText: 'Ya, Tukar!',
+                background: '#0f172a',
+                color: '#fff'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    points -= 2000;
+                    updatePointUI();
+                    Swal.fire({ 
+                        title: 'Penukaran Berhasil!', 
+                        text: 'Voucher telah dikirim ke nomor terdaftar. Terima kasih telah menjaga Ambon Manise!', 
+                        icon: 'success', background: '#0f172a', color: '#fff' 
+                    });
+                }
+            });
+        }
+
+        function updateUI() {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+            tpsData.forEach(t => {
+                const color = t.vol > 85 ? '#ef4444' : (t.vol > 50 ? '#f59e0b' : '#22c55e');
+                const m = L.circleMarker([t.lat, t.lng], { radius: 12, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 }).addTo(map);
+                m.bindPopup(`<b class="text-slate-900">${t.name}</b><br><span class="text-brand-600 font-bold">Volume: ${t.vol}%</span>`);
+                markers.push(m);
+            });
+            const list = document.getElementById('iot-list');
+            list.innerHTML = tpsData.map(t => `
+                <div class="p-4 bg-dark-950/50 rounded-2xl border-l-4 ${t.vol > 85 ? 'border-red-500 animate-pulse' : 'border-brand-500'}">
+                    <div class="flex justify-between text-[9px] font-black uppercase mb-2"><span>${t.name}</span><span class="${t.vol > 85 ? 'text-red-500' : 'text-white'}">${t.vol}%</span></div>
+                    <div class="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
+                        <div class="h-full ${t.vol > 85 ? 'bg-red-500' : 'bg-brand-500'}" style="width: ${t.vol}%"></div>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('crit-val').innerText = tpsData.filter(t => t.vol > 85).length;
+        }
+
+        function runVRP() {
+            if(routeLayer) map.removeLayer(routeLayer);
+            const path = [[-3.7050, 128.1620], [-3.6950, 128.1850], [-3.6930, 128.1950], [-3.6425, 128.2450]];
+            routeLayer = L.polyline(path, { color: '#3b82f6', weight: 6, className: 'route-anim' }).addTo(map);
+            map.fitBounds(routeLayer.getBounds(), { padding: [50,50] });
+            Swal.fire({ title: 'VRP Algorithm Activated', text: 'Optimasi rute logistik disinkronkan ke unit armada.', icon: 'success', background: '#0f172a', color: '#fff' });
+        }
+
+        function getLocation() {
+            const status = document.getElementById('loc-status');
+            status.innerText = "Acquiring Signal...";
+            navigator.geolocation.getCurrentPosition((pos) => {
+                status.innerText = "Location Fixed ✅";
+                map.flyTo([pos.coords.latitude, pos.coords.longitude], 15);
+                L.marker([pos.coords.latitude, pos.coords.longitude]).addTo(map).bindPopup("Lokasi Pelaporan").openPopup();
+            }, () => { status.innerText = "GPS Error"; });
+        }
+
+        function submitReport() {
+            points += 500; // Contoh kenaikan besar untuk testing fitur redeem
+            updatePointUI();
+            Swal.fire({ 
+                title: 'Laporan Terkirim', 
+                text: 'Kontribusi terekam. +500 Social Points ditambahkan sebagai apresiasi partisipasi masyarakat.', 
+                icon: 'success', background: '#0f172a', color: '#fff' 
+            });
+        }
+
+        function initCharts() {
+            new Chart(document.getElementById('miniChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'],
+                    datasets: [{ label: 'Vol', data: [65, 59, 80, 81, 56, 55, 40], borderColor: '#22c55e', tension: 0.4, borderWidth: 2, pointRadius: 0 }]
+                },
+                options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 8 } } } } }
+            });
+        }
+
+        function toggleChat() { document.getElementById('chat-box').classList.toggle('hidden'); }
+
+        function sendMsg() {
+            const inp = document.getElementById('chat-in');
+            const area = document.getElementById('chat-msgs');
+            if(!inp.value) return;
+            area.innerHTML += `<div class="flex justify-end"><div class="bg-brand-600 text-white p-3 rounded-3xl rounded-tr-none max-w-[80%] shadow-lg">${inp.value}</div></div>`;
+            setTimeout(() => {
+                area.innerHTML += `<div class="flex justify-start"><div class="bg-dark-900 border border-white/5 p-4 rounded-3xl rounded-tl-none max-w-[85%] text-slate-300">Data telah dianalisis untuk optimasi operasional. Terma Kasih.</div></div>`;
+                area.scrollTop = area.scrollHeight;
+            }, 800);
+            inp.value = '';
+            area.scrollTop = area.scrollHeight;
+        }
+    </script>
+</body>
+</html>
